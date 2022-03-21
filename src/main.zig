@@ -14,46 +14,42 @@ const maxLeadingLetterPolicy = -9;
 pub fn match(pattern: []const u8, input: []const u8) bool {
     if (pattern.len > input.len) return false;
     var currentIndex: usize = 0;
-    for (pattern) | each | {
-      if (indexOf(input, currentIndex, each)) | pIndex | {
-        currentIndex = pIndex + 1;
-      }
-      else return false;
+    for (pattern) |each| {
+        if (indexOf(input, currentIndex, each)) |pIndex| {
+            currentIndex = pIndex + 1;
+        } else return false;
     }
     return true;
 }
 
 pub fn scoredMatch(pattern: []const u8, input: []const u8) ?i32 {
     if (pattern.len > input.len) return null;
-    if (pattern.len == 0) return 0;    
+    if (pattern.len == 0) return 0;
     var ramp: f32 = 1;
     var rampSum: f32 = 0.0;
     var score: i32 = 0;
     var inputIndex: usize = 0;
-    for (pattern) | patternChar, patternIndex | {
-      if (indexOf(input, inputIndex, patternChar)) | position | {
-        score += if (patternChar == input[position]) caseEqualBonus else 0;
-        if (patternIndex == 0) {            
-            score += firstLetterPen(position);
-        }
-        else {
-            var prev = input[position-1];
-            if (isSeparator(prev)) {
-                score += seperatorBonus;
+    for (pattern) |patternChar, patternIndex| {
+        if (indexOf(input, inputIndex, patternChar)) |position| {
+            score += if (patternChar == input[position]) caseEqualBonus else 0;
+            if (patternIndex == 0) {
+                score += firstMatchScore(position);
+            } else {
+                var prev = input[position - 1];
+                if (isSeparator(prev)) {
+                    score += seperatorBonus;
+                }
+                if (inputIndex + 1 == position) {
+                    ramp += (ramp * adjecencyIncrease);
+                    rampSum += ramp - 1;
+                    score += adjecencyBonus;
+                    score += if (pattern[patternIndex - 1] == prev) adjacentCaseEqualBonus else 0;
+                } else {
+                    ramp = 1;
+                }
             }
-            if (inputIndex + 1 == position) {
-                ramp += (ramp * adjecencyIncrease);
-                rampSum += ramp - 1;
-                score += adjecencyBonus;
-                score += if (pattern[patternIndex-1] == prev) adjacentCaseEqualBonus else 0;
-            }
-            else {
-                ramp = 1;
-            }
-        }
-        inputIndex = position + 1;
-      }
-      else return null;
+            inputIndex = position + 1;
+        } else return null;
     }
 
     score += ((@intCast(i32, (input.len - pattern.len)) * unmatchedLetterPenalty));
@@ -62,23 +58,23 @@ pub fn scoredMatch(pattern: []const u8, input: []const u8) ?i32 {
 }
 
 fn indexOf(haystack: []const u8, start_index: usize, needle: u8) ?usize {
-  const ascii = std.ascii;
-  const lowercaseNeedle = ascii.toLower(needle);
-  var i: usize = start_index;
-  const end = haystack.len - 1;
-  while (i <= end) : (i += 1) {
-      if (ascii.toLower(haystack[i]) == lowercaseNeedle) return i;
-  }
-  return null;
+    const ascii = std.ascii;
+    const lowercaseNeedle = ascii.toLower(needle);
+    var i: usize = start_index;
+    const end = haystack.len - 1;
+    while (i <= end) : (i += 1) {
+        if (ascii.toLower(haystack[i]) == lowercaseNeedle) return i;
+    }
+    return null;
 }
 
-fn firstLetterPen(position: usize) i32 {
+fn firstMatchScore(position: usize) i32 {
     if (position == 0) return firstLetterBonus;
     return std.math.max(@intCast(i32, position) * leadingLetterPenalty, maxLeadingLetterPolicy);
 }
 
 inline fn isSeparator(char: u8) bool {
-  return char == '_' or char == ':';
+    return char == '_' or char == ':';
 }
 
 test "test fuzzy match" {
@@ -93,13 +89,13 @@ test "test fuzzy match" {
 }
 
 test "scoredMatch" {
-    try testing.expectEqual(scoredMatch("a","b"), null);
-    try testing.expectEqual(scoredMatch("a",""), null);
-    try testing.expectEqual(scoredMatch("","b"), 0);
-    try testing.expectEqual(scoredMatch("a","a").?, firstLetterBonus + caseEqualBonus);    
-    try testing.expectEqual(scoredMatch("a", "a").?, firstLetterBonus + caseEqualBonus);    
-    try testing.expectEqual(scoredMatch("a","A").?, firstLetterBonus);
-    try testing.expectEqual(scoredMatch("a","ab").?, firstLetterBonus + caseEqualBonus + unmatchedLetterPenalty);
-    try testing.expectEqual(scoredMatch("a","1a").?, leadingLetterPenalty + unmatchedLetterPenalty + caseEqualBonus);
-    try testing.expectEqual(scoredMatch("a","12345a").?, maxLeadingLetterPolicy + (5 * unmatchedLetterPenalty) + caseEqualBonus);
+    try testing.expectEqual(scoredMatch("a", "b"), null);
+    try testing.expectEqual(scoredMatch("a", ""), null);
+    try testing.expectEqual(scoredMatch("", "b"), 0);
+    try testing.expectEqual(scoredMatch("a", "a").?, firstLetterBonus + caseEqualBonus);
+    try testing.expectEqual(scoredMatch("a", "a").?, firstLetterBonus + caseEqualBonus);
+    try testing.expectEqual(scoredMatch("a", "A").?, firstLetterBonus);
+    try testing.expectEqual(scoredMatch("a", "ab").?, firstLetterBonus + caseEqualBonus + unmatchedLetterPenalty);
+    try testing.expectEqual(scoredMatch("a", "1a").?, leadingLetterPenalty + unmatchedLetterPenalty + caseEqualBonus);
+    try testing.expectEqual(scoredMatch("a", "12345a").?, maxLeadingLetterPolicy + (5 * unmatchedLetterPenalty) + caseEqualBonus);
 }
