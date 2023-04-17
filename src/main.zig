@@ -15,7 +15,7 @@ pub fn match(pattern: []const u8, input: []const u8) bool {
     if (pattern.len > input.len) return false;
     var currentIndex: usize = 0;
     for (pattern) |each| {
-        if (indexOf(input, currentIndex, each)) |pIndex| {
+        if (indexOf(input[currentIndex..], each)) |pIndex| {
             currentIndex = pIndex + 1;
         } else return false;
     }
@@ -29,8 +29,8 @@ pub fn scoredMatch(pattern: []const u8, input: []const u8) ?i32 {
     var rampSum: f32 = 0.0;
     var score: i32 = 0;
     var inputIndex: usize = 0;
-    for (pattern) |patternChar, patternIndex| {
-        if (indexOf(input, inputIndex, patternChar)) |position| {
+    for (pattern, 0..) |patternChar, patternIndex| {
+        if (indexOf(input[inputIndex..], patternChar)) |position| {
             score += if (patternChar == input[position]) caseEqualBonus else 0;
             if (patternIndex == 0) {
                 score += firstMatchScore(position);
@@ -57,13 +57,11 @@ pub fn scoredMatch(pattern: []const u8, input: []const u8) ?i32 {
     return score;
 }
 
-fn indexOf(haystack: []const u8, start_index: usize, needle: u8) ?usize {
+fn indexOf(haystack: []const u8, needle: u8) ?usize {
     const ascii = std.ascii;
     const lowercaseNeedle = ascii.toLower(needle);
-    var i: usize = start_index;
-    const end = haystack.len - 1;
-    while (i <= end) : (i += 1) {
-        if (ascii.toLower(haystack[i]) == lowercaseNeedle) return i;
+    for (haystack, 0..) |item, index| {
+        if (ascii.toLower(item) == lowercaseNeedle) return index;
     }
     return null;
 }
